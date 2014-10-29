@@ -4,7 +4,7 @@ inputs.exefile = 'emp2d';
 inputs.exedir = '/shared/users/ram80/empcodes/emp2/';
 
 inputs.submitjob = 1;  % set to zero just to test setup
-inputs.savefields = [1 1 1 1 1 1]; % set to zero if you don't need the large output fields
+inputs.savefields = [1 0 0 0 0 0]; % set to zero if you don't need the large output fields
                                    % six files: E, J, H, K, D, O
                                    % K is Eeff, Ek, heat, S, and Te; 
                                    % D is ne, nO-, nu;
@@ -20,7 +20,7 @@ inputs.doionosphere = 1;
 % do you want to calculate ionosphere changes (Ne, etc)?
 inputs.doioniz = 1;
 % do you want to integrate and spit out the elve movie?
-inputs.doelve = 1;
+inputs.doelve = 0;
 % do you want to do associative detachment?
 inputs.dodetach = 1;
 % number of times to write to output arrays - evenly distributed
@@ -47,7 +47,7 @@ inputs.stepalt = 70e3;
 % lightning location, azimuth sof interest, and range
 inputs.Trlat = 38;
 inputs.Trlon = -83;
-inputs.range = 250e3;
+inputs.range = 750e3;
 inputs.az = 153;
 
 % time step: use 1e-7 for D-region (good up to 150 km, grids >= 100 m)
@@ -80,18 +80,18 @@ inputs.probedist = 100e3;
 % set up probe points. Define locations in km, then determine grid values
 probeangle = linspace(0,90,10);
 
-inputs.probealt = [0] * 1e3;
-inputs.proberange = [100] * 1e3;
+inputs.proberange = [100 150 200 250 300 350 400 450 500 550 600 650 700] * 1e3;
+inputs.probealt = zeros(size(inputs.proberange));
 
 % lightning inputs
-inputs.lightningtype = 1;        % 0 = CG, 1 = IC, or 2 = CID
+inputs.lightningtype = 0;        % 0 = CG, 1 = IC, or 2 = CID
 inputs.I0 = 100e3; %e3; % peak current in amperes:
 inputs.Ic = 0; %2e3;   % continuing current!
-inputs.sourcealt = 20e3; % note that source alt is channel length for CG, altitude of IC
+inputs.sourcealt = 8e3; % note that source alt is channel length for CG, altitude of IC
 inputs.chlength = 2e3;  % channel length for IC, ignored by CG
-inputs.taur = 7e-6;
-inputs.tauf = 20e-6;
-inputs.rsspeed = -0.9*vp; % for CG, downwards by default; if negative, goes upwards
+inputs.taur = 10e-6;
+inputs.tauf = 100e-6;
+inputs.rsspeed = -0.75*vp; % for CG, downwards by default; if negative, goes upwards
 inputs.decaytype = 1;
 % choices: 0 = TL, 1 = MTLL, 2 = MTLE, 3 = BG, 4 = TCS, 5 = DU, 6 = dummy
 

@@ -80,10 +80,12 @@ s.sigma = fread(fid,s.hh,'double');
 s.epsilon = fread(fid,s.hh,'double');
 fclose(fid);
 
-fid = fopen([datadir '/source.dat'],'r');
-s.nsalts = fread(fid,1,'int');
-s.nstimes = fread(fid,1,'int');
-s.channelcells = fread(fid,1,'int');
-s.Isource = fread(fid,[s.nsalts s.nstimes],'double');
-fclose(fid);
+if exist([datadir '/source.dat'],'file'),
+    fid = fopen([datadir '/source.dat'],'r');
+    s.nsalts = fread(fid,1,'int');
+    s.nstimes = fread(fid,1,'int');
+    s.channelcells = fread(fid,1,'int');
+    s.Isource = fread(fid,[s.nsalts s.nstimes],'double');
+    fclose(fid);
+end
 

@@ -9,13 +9,14 @@ emp2Ddefaults;
 
 % anything you want to change?
 inputs.submitjob = 1;
+inputs.cluster = 'local';
 
 % master directory for set of runs
-toprundir = '/shared/users/ram80/empcodes/runs/cidtest/';
+toprundir = '/shared/users/ram80/empcodes/runs/newtest/';
 
 % variable for batch of runs. name must match an input!
 var1.name = 'I0';
-var1.values = [250e3 300e3 400e3 500e3];
+var1.values = [100e3];
 
 
 % submit jobs
@@ -32,5 +33,7 @@ for m = 1:length(var1.values),
     
     % launch job
     [in,jobid] = emp2Drun(inputs);
+    
+    drawnow;
     
 end

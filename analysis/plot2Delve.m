@@ -2,9 +2,11 @@
 
 clear all; close all;
 
-datadir = '/shared/users/ram80/empcodes/runs/cidtest/I0_5e05/';
+datadir = '/shared/users/ram80/empcodes/runs/cidtest/I0_2e05/';
 
-skiptotheend = 1;
+skiptotheend = 0;
+
+domovie = 1;
 
 datatype = 'double';
 
@@ -17,13 +19,16 @@ etf = (s.camdist + s.range)/vp + s.tsteps*s.dt;
 elvedt = (etf - eti)/(s.elvesteps-1);
 
 h1 = figure(1);
-set(h1,'position',[100 100 1200 800]);
+set(h1,'position',[100 100 1500 800]);
+set(h1,'PaperSize',[11 8.5],'PaperPosition',[0.1 0.1 10.8 8.3]);
+set(h1,'color',[1 1 1]);
+set(h1,'Renderer','zbuffer');
 
-ax1 = subplot(321);
-ax2 = subplot(322);
-ax3 = subplot(323);
-ax4 = subplot(324);
-ax5 = subplot(325);
+ax1 = subplot(221);
+ax2 = subplot(222);
+ax3 = subplot(223);
+ax4 = subplot(224);
+%ax5 = subplot(325);
 
 fid = fopen([datadir 'camera.dat'],'r');
 camtype = fread(fid,1,'int');
@@ -65,19 +70,41 @@ elveO2P1N = permute(reshape(elveO2P1N,s.elvesteps,numel,numaz),[3 2 1]);
 azvec = unique(az)*180/pi;
 elvec = unique(el)*180/pi;
     
+if domovie,
+    aviobj = VideoWriter([datadir 'elvemovie.avi']);
+    aviobj.FrameRate = 20;
+    open(aviobj);
+end
 
-for t = 300:s.elvesteps,
+for t = 300:500,
     
-    imagesc(azvec,elvec,elveN21P(:,:,t)','parent',ax1); axis(ax1,'xy'); caxis(ax1, [0 3e6]);
-    imagesc(azvec,elvec,elveN22P(:,:,t)','parent',ax2); axis(ax2,'xy'); caxis(ax2, [0 1e6]);
-    imagesc(azvec,elvec,elveN2P1N(:,:,t)','parent',ax3); axis(ax3,'xy'); caxis(ax3, [0 1e5]);
-    imagesc(azvec,elvec,elveN2PM(:,:,t)','parent',ax4); axis(ax4,'xy'); caxis(ax4, [0 1e5]);
-    imagesc(azvec,elvec,elveO2P1N(:,:,t)','parent',ax5); axis(ax5,'xy'); caxis(ax5, [0 1e5]);
-    title(ax1,sprintf('%.2f ms',t*elvedt*1e3));
+    imagesc(azvec,elvec,elveN21P(:,:,t)'/1e6,'parent',ax1); axis(ax1,'xy'); caxis(ax1, [0 2]);
+    imagesc(azvec,elvec,elveN22P(:,:,t)'/1e6,'parent',ax2); axis(ax2,'xy'); caxis(ax2, [0 2]);
+    imagesc(azvec,elvec,elveN2P1N(:,:,t)'/1e6,'parent',ax3); axis(ax3,'xy'); caxis(ax3, [0 0.1]);
+    imagesc(azvec,elvec,elveN2PM(:,:,t)'/1e6,'parent',ax4); axis(ax4,'xy'); caxis(ax4, [0 0.1]);
+    %imagesc(azvec,elvec,elveO2P1N(:,:,t)'/1e6,'parent',ax5); axis(ax5,'xy'); caxis(ax5, [0 1e5]);
+    title(ax1,sprintf('N2 1P at %.2f ms',t*elvedt*1e3));
+    title(ax2,sprintf('N2 2P at %.2f ms',t*elvedt*1e3));
+    title(ax3,sprintf('N2+ 1N at %.2f ms',t*elvedt*1e3));
+    title(ax4,sprintf('N2+ M at %.2f ms',t*elvedt*1e3));
+    colorbar('peer',ax1);
+    colorbar('peer',ax2);
+    colorbar('peer',ax3);
+    colorbar('peer',ax4);
     
     drawnow;
     
+    if domovie,
+        F = getframe(h1);
+        writeVideo(aviobj,F);
+    end
+    
 end
+
+if domovie,
+    close(aviobj);
+end
+
 
 %%
 

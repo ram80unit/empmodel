@@ -292,8 +292,12 @@ if (in.submitjob),
     thisdir = pwd;
     cd(in.rundir);
     
-    submitstr = ['qsub -q ' in.cluster ' -d ' in.rundir ' -l nodes=1:ppn=' in.numnodes ' -l walltime=72:00:00 ' ...
-        pbsfile];
+    if strcmp(in.cluster,'local'),
+        submitstr = ['sh ' pbsfile ' &'];
+    else
+        submitstr = ['qsub -q ' in.cluster ' -d ' in.rundir ' -l nodes=1:ppn=' in.numnodes ' -l walltime=72:00:00 ' ...
+            pbsfile];
+    end
     
     [~,jobname] = system(submitstr);
     jobid = strtrim(jobname);

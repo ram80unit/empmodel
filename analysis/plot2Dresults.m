@@ -2,10 +2,14 @@
 
 clear all; close all;
 
-runname = 'I0_1e03';
-datadir = ['/shared/users/ram80/empcodes/runs/sourcetest/' runname '/'];
+runname = 'I0_2e05';
+datadir = ['/shared/users/ram80/empcodes/runs/cidtest/' runname '/'];
+
+set(0,'DefaultFigureRenderer','zbuffer');
 
 datatype = 'double';
+
+domovie = 1;
 
 loadconstants;
 B0 = 50000e-9;      % fix to read from file!
@@ -26,7 +30,7 @@ end
 dr = diff(decr);
 dth = decth(2)-decth(1);
 
-h1 = figure(1); set(h1,'position',[200 30 1400 900]);
+h1 = figure(1); set(h1,'position',[200 30 2000 900]);
 set(h1,'PaperSize',[11 8.5],'PaperPosition',[0.1 0.1 10.8 8.3]);
 set(h1,'color',[1 1 1]);
 set(h1,'Renderer','zbuffer');
@@ -74,7 +78,7 @@ field2 = [-flipud(dumnu); dumnu]';
 
 % initialize plots
 
-im1 = pcolor(ax1,range2,(decr-s.RE)/1000,field2); shading(ax1,'interp');
+im1 = pcolor(ax1,range2,(decr-s.RE)/1000,field2); shading(ax1,'flat');
 im2 = pcolor(ax2,range2,(decr-s.RE)/1000,field2); shading(ax2,'flat');
 im3 = pcolor(ax3,range2,(decr-s.RE)/1000,field2); shading(ax3,'flat');
 im4 = pcolor(ax4,range2,(decr-s.RE)/1000,field2); shading(ax4,'flat');
@@ -84,9 +88,9 @@ im6 = pcolor(ax6,range2,(decr-s.RE)/1000,field2); shading(ax6,'flat');
 colormap(ax1,c2);
 
 caxis(ax1,[-4 6]);
-caxis(ax2,[-8 2]);
+caxis(ax2,[-6 4]);
 caxis(ax3,[4 12]);
-caxis(ax4,[-20 20]);
+caxis(ax4,[-5 5]);
 %caxis(ax5,[0 1e7]);
 caxis(ax6,[-15 -7]);
 
@@ -121,12 +125,24 @@ ylabel(cax5,'number density (per m3)');
 cax6 = colorbar('peer',ax6);
 ylabel(cax6,'J/m3');
 
+set(ax1,'xlim',[-250 250]);
+set(ax2,'xlim',[-250 250]);
 
 % set up vector of times of writes to file
 
 writet = find(mod(t,floor(s.tsteps/s.numfiles)) == 0);
 
-for m = 1:s.numfiles,
+% movie file
+
+if domovie, 
+    aviobj = VideoWriter([datadir 'fieldsmovie.avi']);
+    aviobj.FrameRate = 5;
+    open(aviobj);
+end
+
+%% okay, time loop
+
+for m = 1:30,%s.numfiles,
     
     % E file
     Er = fread(Efile,[dhh drr],datatype);
@@ -186,6 +202,7 @@ for m = 1:s.numfiles,
     deltadens(isinf(deltadens)) = 0;
     
     Er2 = [flipud(Er); Er]';
+    Hp2 = [flipud(Hp); Hp]';
     S2 = [flipud(S); S]';
     nue2 = [flipud(nue); nue]';
     dens2 = [flipud(deltadens); deltadens]';
@@ -193,14 +210,14 @@ for m = 1:s.numfiles,
     heat2 = [flipud(heat); heat]';
     
     set(im1,'CData',log10(abs(Er2)));
-    set(im2,'CData',log10(abs(S2)));
+    set(im2,'CData',log10(abs(Hp2)));
     set(im3,'CData',log10(abs(nue2)));
     set(im4,'CData',dens2);
     set(im5,'CData',opt2);
     set(im6,'CData',log10(abs(heat2)));
     
     set(ti1,'String',sprintf('Er at time %.0f us',writet(m)/10));
-    set(ti2,'String',sprintf('Poyting Flux S at time %.0f us',writet(m)/10));
+    set(ti2,'String',sprintf('Hp at time %.0f us',writet(m)/10));
     set(ti3,'String',sprintf('Coll. Frequency at time %.0f us',writet(m)/10));
     set(ti4,'String',sprintf('Electon Density change at time %.0f us',writet(m)/10));
     set(ti5,'String',sprintf('Optical emissions (N2 1P) at time %.0f us',writet(m)/10));
@@ -210,7 +227,17 @@ for m = 1:s.numfiles,
     
     %print(h1,'-depsc',sprintf('fieldmovie_%02d',m));
     
+    if domovie,
+        F = getframe(h1);
+        writeVideo(aviobj,F);
+    end
+    
 end
+
+if domovie,
+    close(aviobj);
+end
+
 
 fclose('all');
 
