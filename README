@@ -14,9 +14,7 @@ EMP codes (emp1, emp2, and emp3): simulation of lightning EMP propagation and in
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
     
     Personal note:
-    
-    Please feel free to use this software in your own research, and adapt it to other uses. However,
-    if you do so and publish results, please cite the following paper:
-    
-    Marshall, R. A. (2012), An improved model of the lightning electromagnetic field interaction with the D-region
-ionosphere, J. Geophys. Res., 117, A03316, doi:10.1029/2011JA017408.
+
+Please feel free to use this software in your own research, and adapt it to other uses. However, if you do so and publish results, please cite the following paper:
+
+Marshall, R. A. (2012), An improved model of the lightning electromagnetic field interaction with the D-region ionosphere, J. Geophys. Res., 117, A03316, doi:10.1029/2011JA017408.
