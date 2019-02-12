@@ -10,28 +10,43 @@ in.maxdist = sqrt(in.range^2 + in.maxalt^2);
 in.tsteps = floor(1.1 * in.maxdist / vp / in.dt);
 
 % ground conductivity and epsilon
-[in.gsigma,in.gepsilon] = getGroundParams(in.Trlat,in.Trlon,in.az,in.range,in.dr1);
- 
+[in.gsigma,in.gepsilon] = getGroundParams(in);
+
+% option to override conductivity, if in.groundSigma is defined
+
+if isfield(in,'groundSigma'),
+  in.gsigma = in.groundSigma * ones(size(in.gsigma));
+end
+
+% option to override permittivity, if in.groundEpsilon is defined
+
+  if isfield(in,'groundEpsilon'),
+  in.gepsilon = in.groundEpsilon * ones(size(in.gepsilon));
+end
+
 % need r vector; this won't be save in the output file, but we need it to
 % create an ionosphere.
 if (in.groundmethod == 1), 
     in.nground = 0; 
 end
-[r,dr] = generateRvector(in.dr0,in.dr1,in.dr2,in.nground,in.stepalt,in.maxalt);
+[in.r,dr] = generateRvector(in);
 
 in.prober = zeros(size(in.probealt));
 in.probet = zeros(size(in.probealt));
 in.nprobes = length(in.probealt);
 for i = 1:in.nprobes,
-    in.prober(i) = find((r-RE) > in.probealt(i),1,'first') - 1;
+    in.prober(i) = find((in.r-in.Re) > in.probealt(i),1,'first') - 1;
     in.probet(i) = floor(in.proberange(i)/in.dr1);
 end
 
+% index to start nonlinear calculations
+in.nonlinearstart = round(in.nonlinearstartaltitude/in.dr1) + in.nground;
+
 % write out some parameters; approximate guess at run time
 hsteps = round(in.range/in.drange);
-fprintf('Grid is %d x %d, and will run %d time steps\n',length(r),hsteps,in.tsteps);
+fprintf('Grid is %d x %d, and will run %d time steps\n',length(in.r),hsteps,in.tsteps);
 
-cellsxtimes = length(r)*hsteps*in.tsteps;
+cellsxtimes = length(in.r)*hsteps*in.tsteps;
 timefactor = 3.8e-8;  % empirical
 fprintf('Should take about %.1f minutes to run (one node)\n',cellsxtimes*timefactor);
 
@@ -39,7 +54,7 @@ fprintf('Should take about %.1f minutes to run (one node)\n',cellsxtimes*timefac
 %% input current pulse, defined versus altitude and time. 
 
 % set up source file: will be an array of doubles, size (source alt) x tsteps.
-in.source = createEmpSource(in);
+in = createEmpSource(in);
 nt_source = size(in.source,2);
 nalt_source = size(in.source,1);
 
@@ -99,6 +114,11 @@ fwrite(fid,in.dogwave,'int');
 fwrite(fid,in.gwavemag,'double');
 fwrite(fid,in.gwavemaxalt,'double');
 fwrite(fid,in.gwavekh,'double');
+fwrite(fid,in.nonlinearstart,'int');
+fwrite(fid,in.doDFT,'int');
+fwrite(fid,length(in.DFTfreqs),'int');
+fwrite(fid,in.DFTfreqs,'double');
+fwrite(fid,in.read2Dionosphere,'int');
 fclose(fid);
 
 
@@ -114,8 +134,8 @@ fclose(fid);
 
 % need to know space parameters
 in.rr = in.stepalt/in.dr1 + (in.maxalt - in.stepalt)/in.dr2 + 1 + in.nground;
-in.thmax = in.range / RE;
-in.dth = in.drange / RE;
+in.thmax = in.range / in.Re;
+in.dth = in.drange / in.Re;
 in.hh = round(in.thmax / in.dth) + 1;
 
 % vectors for magnetic field; they will be hh size, then will be made into
@@ -130,48 +150,58 @@ fwrite(fid,in.Bt,'double');
 fwrite(fid,in.Bp,'double');
 fclose(fid);
 
+nd = MSISatmosphere1((in.r-in.Re)/1000);
+ndt = nd.total * 1e6;
+in.ndt = ndt;
 
 %% ionosphere and atmosphere densities. Run setupAtmosphere and save ne.dat and nd.dat.
 
-beta = 0.8;
-hk = 82;
+if ~in.read2Dionosphere,
+    %ne = IRIDaytime1((in.r-in.Re)/1000);
+    %ne = IRIionosphere1((in.r-in.Re)/1000);
+    %ne = VictorNeProfile((in.r-in.Re)/1000,1);
 
-%ne = IRIDaytime1((r-RE)/1000);
-ne = IRIionosphere1((r-RE)/1000);
-%ne = VictorNeProfile((r-RE)/1000,1);
-%ne = YukiIonosphere((r-RE)/1000,beta,hk);
-%nec = YukiIonosphere((r-RE)/1000,beta,85);
-nd = MSISatmosphere1((r-RE)/1000);
-ndt = nd.total * 1e6;
+    in.ne = YukiIonosphere((in.r-in.Re)/1000,in.beta,in.hprime);
+else
+    % 2D ionosphere
+    in = create2Dionosphere(in);
+end
+
 
 % fix up ne, to continue down to 0 km alt, at which point it will be 1e-5
 % electron/m^3
 
 if in.planet == 1,
-    ne = VenusIonosphere1((r-RE)/1000,2);
-    ndv = VenusAtmosphere((r-RE)/1000);
+    in.ne = VenusIonosphere1((in.r-in.Re)/1000,2);
+    ndv = VenusAtmosphere((in.r-in.Re)/1000);
     ndt = ndv.total * 1e6;
 end
 
 % just for kicks, calculate the maximum dt we could get away with, assuming
 % vp dt / ds = sqrt(1 - (wp*dt/2)^2)
 
-ds = 1/(sqrt(1/in.dr2^2 + 1/(RE*in.dth)^2));
-wpmax = sqrt(max(ne)*QE^2/ME/e0);
+ds = 1/(sqrt(1/in.dr2^2 + 1/(in.Re*in.dth)^2));
+wpmax = sqrt(max(in.ne(:))*QE^2/ME/e0);
 dtmax = 1/sqrt((vp/ds)^2 + (wpmax/2)^2);
 
 fprintf('FYI, maximum usable dt is %.3g us\n',dtmax*1e6);
 
 % ions: same as electrons, except when ne < 100 cm^-3
 
-ni = ne;
+ni = in.ne;
 ni(ni < 100 * 1e6) = 100 * 1e6;
 
 % okay, write them both out to files
 
 fid = fopen([in.rundir '/ne.dat'],'w');
-fwrite(fid,ne,'double');
+fwrite(fid,in.ne','double');
 fclose(fid);
+
+if in.read2Dionosphere && strcmp(in.iono2Dmethod,'eclipse'),
+    fid = fopen([in.rundir '/nu.dat'],'w');
+    fwrite(fid,in.nu','double');
+    fclose(fid);
+end
 
 fid = fopen([in.rundir '/nd.dat'],'w');
 fwrite(fid,ndt,'double');
@@ -189,7 +219,12 @@ fclose(fid);
 %% set up rates for ionization, attachment, mobility, and optics. These will
 % then be read and interpolated in the code.
 
-rates = getNonlinearRates((r-RE)/1000,nd,in.nground);
+% this part is slow; don't do it if rates already exists. Just copy from last run.
+if ~isfield(in,'rates'),
+    in.rates = getNonlinearRates((in.r-in.Re)/1000,nd,in.nground);
+end
+
+rates = in.rates;
 
 % save to file.
 
@@ -234,14 +269,18 @@ fclose(fid);
 
 %% quick plots
 
+if in.doplots,
+    
 h1 = figure(1);
 set(h1,'position',[100 100 600 600]);
 ax1 = subplot(221);
-plot(ax1,log10(ne),(r-RE)/1000);
+plot(ax1,log10(in.ne(:,1)),(in.r-in.Re)/1000);
 hold(ax1,'on');
-%plot(ax1,log10(nec),(r-RE)/1000,'.');
-plot(ax1,log10(ni),(r-RE)/1000,'r');
+%plot(ax1,log10(nec),(r-in.Re)/1000,'.');
+plot(ax1,log10(ni),(in.r-in.Re)/1000,'r');
 legend(ax1,'electron density','+ion density');
+
+end
 
 % collision frequency for electrons
 if in.planet == 0,
@@ -252,10 +291,12 @@ end
 nue = (QE / ME) ./ mue;
 nui = nue / 100;
 
+if in.doplots,
+    
 ax2 = subplot(222);
-plot(ax2,log10(nue),(r-RE)/1000);
+plot(ax2,log10(nue),(in.r-in.Re)/1000);
 hold(ax2,'on');
-plot(ax2,log10(nui),(r-RE)/1000,'r');
+plot(ax2,log10(nui),(in.r-in.Re)/1000,'r');
 legend(ax2,'electron coll. freq.','ion coll. freq.');
 
 % source
@@ -269,19 +310,20 @@ xlabel(ax3,'time (us)');
 ylabel(ax3,'Altitude (km)');
 
 ax4 = subplot(224);
-plot(ax4,nd.temp,(r-RE)/1000);
+plot(ax4,nd.temp,(in.r-in.Re)/1000);
 xlabel(ax4,'Ambient Temperature');
 
 drawnow;
 
+end
+
+save([in.rundir '/inputs.mat'],'in');
+
+shfile = writeshfile(in);
 
 %% run the simulation
 
 if (in.submitjob),
-    
-    % create pbs file to run simulation
-    
-    pbsfile = writepbsfile(in.rundir,in.runname,in.exefile);
     
     % run command
     
@@ -295,8 +337,9 @@ if (in.submitjob),
     if strcmp(in.cluster,'local'),
         submitstr = ['sh ' pbsfile ' &'];
     else
-        submitstr = ['qsub -q ' in.cluster ' -d ' in.rundir ' -l nodes=1:ppn=' in.numnodes ' -l walltime=72:00:00 ' ...
-            pbsfile];
+        %submitstr = ['qsub -q ' in.cluster ' -d ' in.rundir ' -l nodes=1:ppn=' in.numnodes ' -l walltime=72:00:00 ' ...
+        %    pbsfile];
+        submitstr = ['sbatch ' shfile];
     end
     
     [~,jobname] = system(submitstr);

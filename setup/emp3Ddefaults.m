@@ -4,7 +4,7 @@ inputs.exefile = 'emp3d';
 inputs.exedir = '/shared/users/ram80/empcodes/emp3/';
 
 inputs.submitjob = 1;  % set to zero just to test setup
-inputs.savefields = [1 1 1 1 1 1]; % set to zero if you don't need the large output fields
+inputs.savefields = [1 0 0 0 0 0]; % set to zero if you don't need the large output fields
 
 % what planet?
 inputs.Re = 6370000;
@@ -25,14 +25,14 @@ inputs.dodetach = 1;
 % number of times to write to output arrays - evenly distributed
 inputs.numfiles = 30;
 % highest altitude to consider. Notice everything in meters!
-inputs.maxalt = 110e3;
+inputs.maxalt = 120e3;
 % perfectly conducting ground (0), SIBC (1) or real ground (2)? 
 inputs.groundmethod = 1;
 
 % dr below surface (ground)
 inputs.dr0 = 100;
 %number of ground cells
-inputs.nground = 5;
+inputs.nground = 0;
 % initial dr from ground up
 inputs.dr1 = 1000;
 % dr at higher altitudes
@@ -47,7 +47,7 @@ inputs.stepalt = 70e3;
 % GW elve:
 inputs.Trlat = 44.66;
 inputs.Trlon = -102.89;
-inputs.range = 100e3;
+inputs.range = 250e3;
 inputs.az = 298;
 
 % transmitter:
@@ -60,11 +60,11 @@ inputs.sig = 0;
 inputs.sigm = 0;
 
 % camera location, distance from source along ground and altitude
-inputs.camdist = 474e3;
+inputs.camdist = 450e3;
 inputs.camalt = 0;
-inputs.camelev = 10;
+inputs.camelev = 9;
 inputs.camfov = [36 18];  %% left-right, up-down
-inputs.numpixels = [128 64];
+inputs.numpixels = [256 128];
 inputs.cameratype = 'camera';
 inputs.elvesteps = 1000;
 
@@ -94,13 +94,13 @@ end
 % lightning inputs
 inputs.lightningtype = 0;        % 0 = CG, 1 = IC, or 2 = CID
 inputs.sourcedirection = 0;      % 0 is vertical, 1 is horizontal, only applies if IC or CID
-inputs.I0 = 100e3; % peak current in amperes:
+inputs.I0 = 204e3; % peak current in amperes:
 inputs.Ic = 0; %2e3;   % continuing current!
-inputs.sourcealt = 8e3;
+inputs.sourcealt = 4e3;
 inputs.chlength = 2e3;  % channel length for IC, ignored by CG
 inputs.taur = 10e-6;
-inputs.tauf = 50e-6;
-inputs.rsspeed = 0.7*c;
+inputs.tauf = 100e-6;
+inputs.rsspeed = -0.7*c;
 inputs.decaytype = 1;
 % 0 is TL, 1 is MTLL, 2 is MTLE, 3 is BG, 4 is TCS, 5 is DU, 6 is vInf
 
@@ -111,26 +111,30 @@ inputs.fcut = 300e3;
 %inputs.Bmag = [50000e-9 0 0];
 %inputs.Bmag = [-49740e-9 17145e-9 -37759e-9];
 inputs.Bdip = NaN;      % temporary, otherwise Bmag gets overwritten later
-[Bx, By, Bz] = igrf(today, inputs.Trlat, inputs.Trlon, 90, 'geodetic');
+%[Bx, By, Bz] = igrf(today, inputs.Trlat, inputs.Trlon, 90, 'geodetic');
 %inputs.Bmag = [-Bz Bx By] * 1e-9;
 % 45-degree field with 50,000 nT amplitude
-inputs.Bmag = [-35355 0 35355] * 1e-9;
+inputs.Bmag = [-50000 0 0] * 1e-9;
 
 % cluster and number of nodes
-inputs.cluster = 'batchnew';
-inputs.numnodes = '12';
+inputs.cluster = 'batch';
+inputs.numnodes = '8';
 
 % gravity waves! gwave reaches mag (as DN/N0) at maxalt and then stays
 % there. kh and kp are horizontal k (2-pi/wavelength).
 
-inputs.dogwave = 0;
+inputs.dogwave = 1;
 inputs.gwavemag = 0.2;
-inputs.gwavemaxalt = 90e3;
-inputs.gwavekr = 2*pi/20e3;
-inputs.gwavekh = 2*pi/60e3;
-inputs.gwavekp = 2*pi/500e3;
+inputs.gwavemaxalt = 85e3;
+inputs.gwavekr = 2*pi/15e3;
+inputs.gwavekh = -2*pi/40e3;
+inputs.gwavekp = 2*pi/200e3;
 
 % modified IRI profile
-inputs.doIRI = 1;
+inputs.doIRI = 0;
 % relative factor to multiply my default IRI profile
 inputs.IRI = 1;
+
+% Wait and Spies profile
+inputs.hk = 85;
+inputs.beta = 0.7;

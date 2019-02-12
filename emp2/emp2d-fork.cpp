@@ -28,6 +28,8 @@ using namespace std;
 // version 2.0.3: April 2014: now gives option to output six different savefields files individually, with a vector of six flags input.
 // version 2.0.4: May 2014: implified venus option to make it external to code. Just load ne, nd, and rates profiles as you do for earth. difference will lie in generation of those files in matlab setup.
 // version 3.0: modified to read source from file as alt-vs-time 2D array. 
+// version 3.1: added DFT computations, to get transmitter response from impulsive source
+// fork: adding ability to read 2D ionosphere from file.
 
 ///////////////////////////////////////////////////////////////////////////////////
 
@@ -76,6 +78,10 @@ int main()
   double gwavemag;
   double gwavemaxalt;
   double gwavekh;
+  int nonlinearstart;  // index to start nonlinear calculations
+  int doDFT; // output amplitudes along ground to extract amplitude and phase later
+  int numDFTfreqs;
+  int read2Dionosphere;
 
   fread(&RE,sizeof(double),1,inputFile);
   fread(&dopml_top,sizeof(int),1,inputFile);
@@ -113,8 +119,20 @@ int main()
   fread(&gwavemag,sizeof(double),1,inputFile);
   fread(&gwavemaxalt,sizeof(double),1,inputFile); 
   fread(&gwavekh,sizeof(double),1,inputFile); 
+  fread(&nonlinearstart,sizeof(int),1,inputFile);
+  fread(&doDFT,sizeof(int),1,inputFile);
+  fread(&numDFTfreqs,sizeof(int),1,inputFile);
+  double DFTfreqs[numDFTfreqs];
+  fread(&DFTfreqs,sizeof(double),numDFTfreqs,inputFile);
+  fread(&read2Dionosphere,sizeof(int),1,inputFile);
+
   fclose(inputFile);
 
+  ofstream logfile;
+
+  logfile.open("log.txt"); 
+  logfile << "Successfully read inputs file!\n";
+  logfile.close();
 
   //------------------------------------------------------------------------//
   //-------READ SOURCE------------------------------------------------------//
@@ -132,7 +150,10 @@ int main()
   fread(&Isource,sizeof(double),nsalts*nstimes,sourceFile);
   fclose(sourceFile);
 
-
+  logfile.open("log.txt", std::ofstream::app);
+  logfile << "Successfully read source file!\n";
+  logfile.close();
+    
   //------------------------------------------------------------------------//
   //-------GRID PARAMETERS -------------------------------------------------//
 
@@ -199,15 +220,20 @@ int main()
   fread(&geps,sizeof(double),hh,groundFile);
   fclose(groundFile);
 
+  logfile.open("log.txt");
+  logfile << "Successfully read ground file!\n";
+  logfile.close();
+    
   //------------------------------------------------------------------------//
   //-------MULTIPLY FACTORS FOR FDTD ---------------------------------------//
   
+    
   DATATYPE c1h = (2*U0 - sigm*dt)/(2*U0 + sigm*dt);
   DATATYPE c2h = 2*dt/(2*U0 + sigm*dt);
-  
   DATATYPE c1e [rr][hh];
   DATATYPE c2e [rr][hh];
   
+    
   for (int i = 0; i < rr; i++) {
     for (int j = 0; j < hh; j++) {
       c1e[i][j] = (2*E0 - sig*dt)/(2*E0 + sig*dt);
@@ -244,7 +270,7 @@ int main()
   // will also need "old" tangential H fields
   DATATYPE Hpold [rr][hh];
   DATATYPE Htold [rr][hh];
-
+    
 
   for (int j = 0; j < hh; j++) {
     sibc_a[j] = gsig[j]/(E0*geps[j]);
@@ -277,6 +303,10 @@ int main()
   fread(&Bp,sizeof(double),hh,BFile);
   fclose(BFile);
 
+  logfile.open("log.txt");
+  logfile << "Successfully read B0 file!\n";
+  logfile.close();
+    
   // compute gyrofrequencies, store in 2D arrays
 
   DATATYPE wcer [hh];
@@ -303,7 +333,6 @@ int main()
   //------------------------------------------------------------------------//
   //-------OUTPUT TO LOG FILE ----------------------------------------------//
 
-  ofstream logfile;
   logfile.open("log.txt");
 
   logfile << "\n";
@@ -321,6 +350,8 @@ int main()
   logfile << "Camera located " << camdist/1e3 << " km away, at " << camalt/1e3 << " km altitude\n"; 
   logfile << "drange is " << drange << "\n";
   logfile << "Simulation will run " << tsteps << " time steps.\n";
+  logfile << "Nonlinear calculations start at i = " << nonlinearstart << "\n";
+  logfile << "------------------------------------------------------------------\n\n";
 
   // write space parameters to sferic.dat file
 
@@ -336,6 +367,10 @@ int main()
   fwrite(th,sizeof(DATATYPE),hh,sfericFile);
   fwrite(&decfactor,sizeof(int),1,sfericFile);
   fclose(sfericFile);
+
+  logfile.open("log.txt");
+  logfile << "Successfully wrote sferic.dat file!\n";
+  logfile.close();
 
   //------------------------------------------------------------------------//
   //-------ELVE INTEGRATION SETUP ------------------------------------------//
@@ -354,6 +389,10 @@ int main()
   fread(&elveaz,sizeof(double),numpixels,cameraFile);
   fread(&elveel,sizeof(double),numpixels,cameraFile);
   fclose(cameraFile);
+
+  logfile.open("log.txt");
+  logfile << "Successfully read camera file!\n";
+  logfile.close();
 
   //int elvesteps = 1000;         // this is the number of time steps in the actual elve cube
   DATATYPE eti = (camdist - range)/C;
@@ -421,6 +460,14 @@ int main()
   // spatial-averaged electric field
   DATATYPE Erm, Etm, Hrm, Htm, Hpm;
 
+  // DFT fields
+  DATATYPE DFTfieldsEr [hh][2*numDFTfreqs];
+  DATATYPE DFTfieldsEt [hh][2*numDFTfreqs];
+  DATATYPE DFTfieldsEp [hh][2*numDFTfreqs];
+  DATATYPE DFTfieldsHr [hh][2*numDFTfreqs];
+  DATATYPE DFTfieldsHt [hh][2*numDFTfreqs];
+  DATATYPE DFTfieldsHp [hh][2*numDFTfreqs];
+
   // probe fields
   DATATYPE Erprobe [tsteps][nprobes];
   DATATYPE Etprobe [tsteps][nprobes];
@@ -479,6 +526,13 @@ int main()
   memset(Eeff,0,sizeof(Eeff));
   memset(Emag,0,sizeof(Emag));
   memset(heat,0,sizeof(heat));
+
+  memset(DFTfieldsEr,0,sizeof(DFTfieldsEr));
+  memset(DFTfieldsEt,0,sizeof(DFTfieldsEt));
+  memset(DFTfieldsEp,0,sizeof(DFTfieldsEp));
+  memset(DFTfieldsHr,0,sizeof(DFTfieldsHr));
+  memset(DFTfieldsHt,0,sizeof(DFTfieldsHt));
+  memset(DFTfieldsHp,0,sizeof(DFTfieldsHp));
   
   // decimated fields, to reduce output file size
 
@@ -537,7 +591,11 @@ int main()
 
   FILE * neFile;
   neFile = fopen("ne.dat","rb");
-  fread(&ne1,sizeof(double),rr,neFile);
+  if (read2Dionosphere) {
+    fread(&ne,sizeof(double),hh*rr,neFile);
+  } else {
+    fread(&ne1,sizeof(double),rr,neFile);
+  }
   fclose(neFile);
 
   FILE * niFile;
@@ -555,7 +613,9 @@ int main()
   // extrapolate 2D arrays
   for (int i = 0; i < rr; i++) {
     for (int j = 0; j < hh; j++) {
-      ne[i][j] = ne1[i];
+      if (!read2Dionosphere) {
+	ne[i][j] = ne1[i];
+      }
       ni[i][j] = ni1[i];
       wpe[i][j] = QE * sqrt(ne[i][j] / (ME * E0));
       wpi[i][j] = QE * sqrt(ni[i][j] / (MI * E0));
@@ -694,9 +754,23 @@ int main()
 	mue = muArray[i][0] / nd2[i][j];
       }
       nue[i][j] = (QE / ME) / mue;
-      nui[i][j] = nue[i][j] / 100; //* ME / MI;    // wrong: fix later
+      nui[i][j] = nue[i][j] / 100;
     }
   }
+
+  // if we are using a 2D ionosphere, we also need a 2D collision frequency (perturbation studies)
+  
+  if (read2Dionosphere) {
+  FILE * nuFile;
+  nuFile = fopen("nu.dat","rb");
+    fread(&nue,sizeof(double),hh*rr,nuFile);
+    for (int i = 0; i < rr; i++) {
+      for (int j = 0; j < hh; j++) {
+	nui[i][j] = nue[i][j] / 100;
+      }
+    }
+  }
+
 
   // if do transmitter, collision frequency depends on Temperature and density
 
@@ -704,6 +778,8 @@ int main()
     for (int i = 0; i < rr; i++) {
       for (int j = 0; j < hh; j++) {
 	nue[i][j] = 1.6 * ( 2.33e-17*(0.78*nd2[i][j])*(1.0 - 1.25e-4*Te[i][j])*Te[i][j] + 1.82e-16*(0.21*nd2[i][j])*(1.0 + 3.6e-2*sqrt(Te[i][j]))*sqrt(Te[i][j]) );
+	// override!
+	nue[i][j] = 1.815775e11 * exp(-0.15*(r[i]-RE)/1000);
 	nui[i][j] = nue[i][j] / 100;
       }
     }
@@ -1058,7 +1134,7 @@ int main()
 
     // ==========================================
 
-    // pml correction
+    // pml corrections
     if (dopml_wall) {
       for (int i = 0; i < rr-1; i++) {
 	for (int j = 0; j < pmllen; j++) {
@@ -1219,7 +1295,7 @@ int main()
     if (doionosphere & doioniz & !dotransmitter) {
 
 #pragma omp parallel for private(EoEk,vN21P,vN22P,vN2P1N,vN2PM,vO2P1N,vOred,vOgrn,tauN21P,tauN22P,tauN2P1N,tauN2PM,tauO2P1N,tauOred,tauOgrn,Aion,nenew,topE,botE,vi,va,vd,mue)
-      for (int i = nground+1; i < rr-pmllen+1; i++) {
+      for (int i = nonlinearstart; i < rr-pmllen+1; i++) {
 	for (int j = 0; j < hh-pmllen+1; j++) {
 
 	  topE = 1;
@@ -1367,7 +1443,7 @@ int main()
 	  Ee2 = 1/(wce0[j]*wce0[j] + nue[i][j]*nue[i][j]);
 	  if (wce0[j] == 0) {
 	    Se1 = 1;
-	    Ce1 = 0;
+	    Ce1 = 0.5;  // convergence value
 	  } else {
 	    Se1 = sin(wce0[j]*dt)/wce0[j];
 	    Ce1 = (1 - cos(wce0[j]*dt))/(wce0[j]*wce0[j]);
@@ -1381,7 +1457,7 @@ int main()
 	  Ei2 = 1/(wci0[j]*wci0[j] + nui[i][j]*nui[i][j]);
 	  if (wci0[j] == 0) {
 	    Si1 = 1;
-	    Ci1 = 0;
+	    Ci1 = 0.5;
 	  } else {
 	    Si1 = sin(wci0[j]*dt)/wci0[j];
 	    Ci1 = (1 - cos(wci0[j]*dt))/(wci0[j]*wci0[j]);
@@ -1502,13 +1578,15 @@ int main()
     // VLF Transmitter induced heating, using J.E heating and cooling from Rodriquez (1994) (updated). 
     // ---------------------------------------------------------------------
 
-    if (dotransmitter) {
+    // override!
+    if (0) {
+      //if (dotransmitter) {
 
       // first index for heating: start at 40 km. Below causes instability...
-      int txfirsti = round(60e3/dr1 + nground);
+      // int nonlinearstart = round(60e3/dr1 + nground);
 
 #pragma omp parallel for private(f_N2,f_O2,gg,Lelast_N2,Lelast_O2,Lrot_N2,Lrot_O2,Lvib_N2,Lvib_O2,Le)
-      for (int i = txfirsti; i < rr-pmllen+1; i++) {
+      for (int i = nonlinearstart; i < rr-pmllen+1; i++) {
 	for (int j = 0; j < hh-pmllen+1; j++) {
 
 	  // cooling
@@ -1548,6 +1626,33 @@ int main()
       logfile << "You can expect the total simulation to take " << totaltime << " minutes.\n";
       logfile.close();
     }
+
+    // compute DFTs along the ground at specified frequencies
+    if (doDFT) {
+
+      for (int j = 0; j < hh; j++) {
+	  for (int m = 0; m < numDFTfreqs; m++) {
+
+	    DFTfieldsEr[j][2*m] += Er[nground+1][j] * sin(2*PI*DFTfreqs[m]*(t+1/2)*dt) * dt;
+            DFTfieldsEr[j][2*m+1] += Er[nground+1][j] * cos(2*PI*DFTfreqs[m]*(t+1/2)*dt) * dt;
+	    DFTfieldsEt[j][2*m] += Et[nground+1][j] * sin(2*PI*DFTfreqs[m]*(t+1/2)*dt) * dt;
+            DFTfieldsEt[j][2*m+1] += Et[nground+1][j] * cos(2*PI*DFTfreqs[m]*(t+1/2)*dt) * dt;
+	    DFTfieldsEp[j][2*m] += Ep[nground+1][j] * sin(2*PI*DFTfreqs[m]*(t+1/2)*dt) * dt;
+            DFTfieldsEp[j][2*m+1] += Ep[nground+1][j] * cos(2*PI*DFTfreqs[m]*(t+1/2)*dt) * dt;
+	    
+	    DFTfieldsHr[j][2*m] += Hr[nground+1][j] * sin(2*PI*DFTfreqs[m]*t*dt) * dt;
+	    DFTfieldsHr[j][2*m+1] += Hr[nground+1][j] * cos(2*PI*DFTfreqs[m]*t*dt) * dt;
+	    DFTfieldsHt[j][2*m] += Ht[nground+1][j] * sin(2*PI*DFTfreqs[m]*t*dt) * dt;
+            DFTfieldsHt[j][2*m+1] += Ht[nground+1][j] * cos(2*PI*DFTfreqs[m]*t*dt) * dt;
+	    DFTfieldsHp[j][2*m] += Hp[nground+1][j] * sin(2*PI*DFTfreqs[m]*t*dt) * dt;
+            DFTfieldsHp[j][2*m+1] += Hp[nground+1][j] * cos(2*PI*DFTfreqs[m]*t*dt) * dt;
+	}
+      }
+
+    }
+    
+
+    ////////////////
     
     if (t % (int)(tsteps/numfiles) == 0) {
       partialtime = 100 * t/tsteps;   
@@ -1672,6 +1777,20 @@ int main()
 
   // write the elve
 
+  if (doDFT) {
+    FILE * dftFile;
+    dftFile = fopen("dft.dat","wb");
+    fwrite(&numDFTfreqs,sizeof(int),1,dftFile);
+    fwrite(&DFTfreqs,sizeof(double),numDFTfreqs,dftFile);
+    fwrite(&DFTfieldsEr,sizeof(DATATYPE),hh*numDFTfreqs*2,dftFile);
+    fwrite(&DFTfieldsEt,sizeof(DATATYPE),hh*numDFTfreqs*2,dftFile);
+    fwrite(&DFTfieldsEp,sizeof(DATATYPE),hh*numDFTfreqs*2,dftFile);
+    fwrite(&DFTfieldsHr,sizeof(DATATYPE),hh*numDFTfreqs*2,dftFile);
+    fwrite(&DFTfieldsHt,sizeof(DATATYPE),hh*numDFTfreqs*2,dftFile);
+    fwrite(&DFTfieldsHp,sizeof(DATATYPE),hh*numDFTfreqs*2,dftFile);
+    fclose(dftFile);
+  }
+
   if (doelve) {
     logfile.open("log.txt",std::fstream::app);
     logfile << "Now writing elve data to elve.dat\n";
@@ -1704,6 +1823,7 @@ int main()
   fwrite(&Hpprobe,sizeof(DATATYPE),tsteps*nprobes,ProbeFile);
   fclose(ProbeFile);
 
+  
   logfile.open("log.txt",std::fstream::app);
   logfile << "All done!\n";
 

@@ -3,17 +3,14 @@ function ne = YukiIonosphere(alt,beta,hk)
 % beta and hk are Wait and Spies profile parameters
 % will use IRI profile above crossover point
 
-%alt = 0:1:120;
-%hk = 90;
-%beta = 0.8;
-thresh = 2e9;
+% alt = 0:1:120;
+% hk = 90;
+% beta = 0.8;
+thresh = 3e9;
 
 ne = 1.43e13 * exp(-0.15*hk) * exp((beta-0.15)*(alt-hk));
 
-ind = find(ne > thresh,1,'first');
-
-
-ne(ind:end) = thresh;
+ne(ne > thresh) = thresh;
 ne = smooth(ne,5);
     
 %figure;

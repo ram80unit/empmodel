@@ -1,0 +1,68 @@
+
+function in = create2Dionosphere(in)
+
+loadconstants;
+
+% read UF h', beta values and create ne array in 2D.
+
+% need to create distance array
+thmax = in.range / in.Re;
+dth = in.drange / in.Re;
+hh = round(thmax / dth) + 1;
+th = 0:dth:(hh-1)*dth;
+dvec = th*in.Re;
+
+% test for comparison
+dvec2 = 0:in.drange:in.range;
+
+% I have inputs called in.hbrange, in.hparray, in.betaarray.
+
+if ~strcmp(in.iono2Dmethod,'Rasoul'),
+
+    % initialize
+ne0 = YukiIonosphere((in.r-in.Re)/1e3,in.betaarray(1),in.hparray(1));
+ne02d = repmat(ne0,1,hh);
+
+for m = 2:length(in.hbrange),
+    ne1 = YukiIonosphere((in.r-in.Re)/1e3,in.betaarray(m),in.hparray(m));
+    ind = find(dvec > in.hbrange(m),1,'first');
+    if ~isempty(ind),
+        ne02d(:,ind:end) = repmat(ne1,1,(hh-ind+1));
+    end
+end
+
+in.ne = ne02d;
+
+else
+    % read and interpolate 2D ionosphere from Rasoul runs
+    
+    A = load(in.iono2Dfile);
+    % gives x,y,z, ne, nu_eff, nm.
+    
+    rin = A.z/1e3;
+    xin = A.x;
+    rout = (in.r-in.Re)/1e3;
+    dx = in.drange;
+    xout = min(A.x):dx:max(A.x);
+    
+    [Xin,Rin] = meshgrid(xin,rin);
+    
+    nepert = interp2(Xin,Rin,A.ne',xout,rout');
+    nupert = interp2(Xin,Rin,A.nu_eff',xout,rout');
+    
+    % now plug this into ne02d
+    ne0 = nepert(:,1);
+    ne02d = repmat(ne0,1,hh);
+    nu0 = nupert(:,1);
+    nu02d = repmat(nu0,1,hh);
+    
+    i1 = find(dvec >= (in.ionopertdist + xout(1)), 1, 'first');
+    i2 = i1 + length(xout) - 1;
+    
+    ne02d(:,i1:i2) = nepert;
+
+    in.ne = ne02d;
+    
+    % repeat for collisions
+end
+

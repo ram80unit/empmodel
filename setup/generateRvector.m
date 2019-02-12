@@ -1,19 +1,19 @@
-function [r,dr] = generateRvector(dr0,dr1,dr2,nground,stepalt,maxalt)
+function [r,dr] = generateRvector(in)
 
 loadconstants;
 
-rr = stepalt/dr1 + (maxalt - stepalt)/dr2 + 1 + nground;
+rr = in.stepalt/in.dr1 + (in.maxalt - in.stepalt)/in.dr2 + 1 + in.nground;
 r = zeros(rr,1);
 dr = zeros(rr-1,1);
-r(1) = RE - nground*dr0;
-for i = 2:nground+1,
-    r(i) = r(i-1) + dr0;
+r(1) = in.Re - in.nground*in.dr0;
+for i = 2:in.nground+1,
+    r(i) = r(i-1) + in.dr0;
 end
-for i = nground+2:rr,
-    if r(i-1) < (RE + stepalt),
-        r(i) = r(i-1) + dr1;
+for i = in.nground+2:rr,
+    if r(i-1) < (in.Re + in.stepalt),
+        r(i) = r(i-1) + in.dr1;
     else
-        r(i) = r(i-1) + dr2;
+        r(i) = r(i-1) + in.dr2;
     end
     dr(i-1) = r(i) - r(i-1);
 end

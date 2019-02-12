@@ -20,7 +20,7 @@ in.gepsilon = gepsilon(1);
 if (in.groundmethod == 1), 
     in.nground = 0; 
 end
-[r,dr] = generateRvector(in.dr0,in.dr1,in.dr2,in.nground,in.stepalt,in.maxalt);
+[in.r,dr] = generateRvector(in.dr0,in.dr1,in.dr2,in.nground,in.stepalt,in.maxalt);
 hh = 2*floor(in.range/in.drange);
 pp = 2*floor(in.range/in.drange);
 
@@ -31,7 +31,7 @@ in.probet = zeros(size(in.probealt));
 in.probep = zeros(size(in.probealt));
 in.nprobes = length(in.probealt);
 for i = 1:in.nprobes,
-    in.prober(i) = find((r-RE) > in.probealt(i),1,'first') - 1;
+    in.prober(i) = find((in.r-RE) > in.probealt(i),1,'first') - 1;
     in.probet(i) = floor(hh/2 + in.proberanget(i)/in.drange);
     in.probep(i) = floor(pp/2 + in.proberangep(i)/in.drange);
 end
@@ -39,10 +39,10 @@ end
 
 % write out some parameters; approximate guess at run time
 hsteps = round(2*in.range/in.drange + 1);
-fprintf('Grid is %d x %d x %d, and will run %d time steps\n',length(r),hsteps,hsteps,in.tsteps);
+fprintf('Grid is %d x %d x %d, and will run %d time steps\n',length(in.r),hsteps,hsteps,in.tsteps);
 
 % need to recalculate this for 3D
-cellsxtimes = length(r)*hsteps*hsteps*in.tsteps/str2num(in.numnodes);
+cellsxtimes = length(in.r)*hsteps*hsteps*in.tsteps/str2num(in.numnodes);
 timefactor = 6.63e-8;  % empirical
 fprintf('Should take about %.1f minutes to run (%s nodes)\n',cellsxtimes*timefactor,in.numnodes);
 
@@ -50,9 +50,9 @@ fprintf('Should take about %.1f minutes to run (%s nodes)\n',cellsxtimes*timefac
 %% input current pulse, defined vs. altitude and time. 
 
 % set up source file: will be an array of doubles, size (source alt) x tsteps.
-source = createEmpSource(in);
-nt_source = size(source,2);
-nalt_source = size(source,1);
+in = createEmpSource(in);
+nt_source = size(in.source,2);
+nalt_source = size(in.source,1);
 
 % code needs to know channel length for ICs, in number of cells. I will
 % give it HALF channel length!
@@ -69,7 +69,7 @@ fid = fopen([in.rundir '/source.dat'],'w');
 fwrite(fid,nalt_source,'int');
 fwrite(fid,nt_source,'int');
 fwrite(fid,channelcells,'int');
-fwrite(fid,source,'double');
+fwrite(fid,in.source,'double');
 fclose(fid);
 
 % regular input file
@@ -171,29 +171,29 @@ fclose(fid);
 
 %% ionosphere and atmosphere densities. Run setupAtmosphere and save ne.dat and nd.dat.
 
-beta = 0.8;
-hk = 82;
+%beta = 0.9;
+%hk = 87;
 
 if in.doIRI,
-    ne = IRIionosphere1((r-RE)/1000);
+    ne = IRIionosphere1((in.r-RE)/1000);
     ne = ne * in.IRI;
 else
-    ne = YukiIonosphere((r-RE)/1000,beta,hk);
+    ne = YukiIonosphere((in.r-RE)/1000,in.beta,in.hk);
 end
 
 % some other possibilities:
 %ne = IRIDaytime1((r-RE)/1000);
 %ne = VictorNeProfile((r-RE)/1000,1);
 
-nd = MSISatmosphere1((r-RE)/1000);
+nd = MSISatmosphere1((in.r-RE)/1000);
 ndt = nd.total * 1e6;
 
 % fix up ne, to continue down to 0 km alt, at which point it will be 1e-5
 % electron/m^3
 
 if in.dovenus,
-    ne = VenusIonosphere1((r-RE)/1000,2);
-    ndv = VenusAtmosphere((r-RE)/1000);
+    ne = VenusIonosphere1((in.r-RE)/1000,2);
+    ndv = VenusAtmosphere((in.r-RE)/1000);
     ndt = ndv.total * 1e6;
 end
 
@@ -232,7 +232,7 @@ fclose(fid);
 %% set up rates for ionization, attachment, mobility, and optics. These will
 % then be read and interpolated in the code.
 
-rates = getNonlinearRates((r-RE)/1000,nd);
+rates = getNonlinearRates((in.r-RE)/1000,nd,in.nground);
 
 % save to file.
 
@@ -280,10 +280,10 @@ fclose(fid);
 h1 = figure(1);
 set(h1,'position',[100 100 600 600]);
 ax1 = subplot(221);
-plot(ax1,log10(ne),(r-RE)/1000);
+plot(ax1,log10(ne),(in.r-RE)/1000);
 hold(ax1,'on');
 %plot(ax1,log10(nec),(r-RE)/1000,'.');
-plot(ax1,log10(ni),(r-RE)/1000,'r');
+plot(ax1,log10(ni),(in.r-RE)/1000,'r');
 legend(ax1,'electron density','+ion density');
 
 % collision frequency for electrons
@@ -296,9 +296,9 @@ nue = (QE / ME) ./ mue;
 nui = nue / 100;
 
 ax2 = subplot(222);
-plot(ax2,log10(nue),(r-RE)/1000);
+plot(ax2,log10(nue),(in.r-RE)/1000);
 hold(ax2,'on');
-plot(ax2,log10(nui),(r-RE)/1000,'r');
+plot(ax2,log10(nui),(in.r-RE)/1000,'r');
 legend(ax2,'electron coll. freq.','ion coll. freq.');
 
 % source
@@ -306,13 +306,13 @@ legend(ax2,'electron coll. freq.','ion coll. freq.');
 ax3 = subplot(223);
 tvec = in.dt*(0:1:(nt_source-1));
 hvec = in.dr1*(0:1:(nalt_source-1));
-imagesc(tvec*1e6,hvec/1e3,source,'parent',ax3);
+imagesc(tvec*1e6,hvec/1e3,in.source,'parent',ax3);
 axis(ax3,'xy');
 xlabel(ax3,'time (us)');
 ylabel(ax3,'Altitude (km)');
 
 ax4 = subplot(224);
-plot(ax4,nd.temp,(r-RE)/1000);
+plot(ax4,nd.temp,(in.r-RE)/1000);
 xlabel(ax4,'Ambient Temperature');
 
 drawnow;

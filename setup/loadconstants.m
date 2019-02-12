@@ -5,7 +5,7 @@ e0 = 8.845e-12;
 vp = sqrt(1/(u0*e0));
 
 % earth radius (meters)
-RE = 6370000;
+% RE = 6370000; THIS IS USER DEFINED
 
 % electron charge
 QE = 1.6e-19;

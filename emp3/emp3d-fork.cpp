@@ -671,11 +671,12 @@ int main()
   fread(&nd,sizeof(double),rr,ndFile);
   fclose(ndFile);
 
-  // create 3D nd array in order to input gravity wave
+  // create 3D nd and ne arrays in order to input gravity wave
   DATATYPE nd3 [rr][hh][pp];
   DATATYPE gwfac, gwamp;
+  DATATYPE scaleheight = 7e3;
   for (int i = 0; i < rr; i++) {
-    gwamp = gwavemag / exp(gwavemaxalt/12e3) * exp((r[i]-RE)/12e3);
+    gwamp = gwavemag / exp(gwavemaxalt/(2*scaleheight)) * exp((r[i]-RE)/(2*scaleheight));
     if (gwamp > gwavemag) gwamp = gwavemag;
     if (gwamp < -gwavemag) gwamp = -gwavemag;
     for (int j = 0; j < hh; j++) {
@@ -683,6 +684,7 @@ int main()
 	gwfac = gwamp * cos(gwavekh*j*dth*RE + gwavekp*k*dph*RE + gwavekr*(r[i]-RE));
 	if (dogwave) {
 	  nd3[i][j][k] = nd[i] * ( 1 + gwfac );
+	  ne[i][j][k] = ne[i][j][k] * ( 1 + gwfac );
 	} else {
 	  nd3[i][j][k] = nd[i];
 	}

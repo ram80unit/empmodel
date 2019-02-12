@@ -9,19 +9,14 @@ emp3Ddefaults;
 
 % anything you want to change?
 inputs.submitjob = 1;
-inputs.doioniz = 1;
-inputs.dodetach = 1;
-inputs.doionosphere = 1;
-inputs.cluster = 'batch';
-inputs.numnodes = '8';
+inputs.dogwave = 0;
 
 % master directory for set of runs
-toprundir = '/shared/users/ram80/empcodes/runs/sourcetest3/';
+toprundir = '/shared/users/ram80/empcodes/runs/elvegwvarykA2/';
 
 % variable for batch of runs. name must match an input!
 var1.name = 'I0';
-var1.values = [100] * 1e3;
-
+var1.values = [100 125 150 175 200 225 250]*1e3;
 
 % submit jobs
 

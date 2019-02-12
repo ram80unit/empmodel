@@ -1,11 +1,7 @@
 
-function Jsv = createEmpSource(in)
+function in = createEmpSource(in)
 
 testing = 0;
-
-%in.lightningtype = 1;
-
-decaytype = in.decaytype;
 
 % initialize time-dependent source
 
@@ -28,13 +24,13 @@ Iin2 = filter(b,1,Iin);
 Iin2 = Iin2 / max(Iin2) * in.I0;   % rescaled to peak current
 
 % fix delays and stuff
-if decaytype < 3,
+if in.decaytype < 3,
     in.Iin = [zeros(round(in.sourcealt/abs(in.rsspeed)/in.dt),1); Iin2];
 else
     in.Iin = [Iin2; zeros(2*round(in.sourcealt/abs(in.rsspeed)/in.dt),1)];
 end
 
-in.Iin(in.Iin < 1e-6) = 1e-6;
+in.Iin(in.Iin < 1e-20) = 1e-20;
 
 in.tsteps2 = length(in.Iin);
 
@@ -42,7 +38,7 @@ in.tsteps2 = length(in.Iin);
 %% if transmitter
 
 if in.dotransmitter,
-    decaytype = 7;
+    in.decaytype = 7;
     in.sourcealt = 4e3;
     in.lightningtype = 0;
     in.Iin = in.I0 * sin(2*pi*in.txf0 * in.dt * (1:in.tsteps));
@@ -53,38 +49,31 @@ end
 
 %% spatial variation
 
+
 % find index of top of source
 if in.lightningtype == 0,
+    nextra = 0;
     satop = in.nground + floor(in.sourcealt/in.dr1) + 1;
-else
+elseif in.lightningtype == 1,
+    nextra = 7;
     satop = in.nground + floor(in.sourcealt/in.dr1 + in.chlength/2/in.dr1) + 1;
+elseif in.lightningtype == 2,
+    nextra = 0;
+    load('clds_source_current.mat');
+    z = z + 10e3;
+    satop = in.nground + floor(max(z)/in.dr1) + 1;
+    in.tsteps2 = ceil(max(t)/in.dt);
 end
 
-% a few cells above and below the top
-nextra = 0;
-
-% total length to top of defined source. Will write this to source file
 nstotal = satop + nextra;
-
-% setup output array
 Jsv = zeros(nstotal,in.tsteps2);
-
-% create r vector
-r = zeros(nstotal,1);
-r(1) = in.Re - in.nground*in.dr0;
-for m = 2:in.nground+1,
-    r(m) = r(m-1) + in.dr0;
-end
-for m = in.nground+2:nstotal,
-    r(m) = r(m-1) + in.dr1;
-end
 
 
 %% CG source
 if in.lightningtype == 0,
     
     % altitude-dependent delay of return stroke from initiation
-    rsdelay = round((r-in.Re)/abs(in.rsspeed)/in.dt);
+    rsdelay = round((in.r(1:nstotal)-in.Re)/abs(in.rsspeed)/in.dt);
     
     for t = 1:in.tsteps2,
         
@@ -95,38 +84,38 @@ if in.lightningtype == 0,
                 tJs = in.tsteps2;
             end
             
-            if decaytype == 0,       % TL source
+            if in.decaytype == 0,       % TL source
                 
                 Jsv(i,t) = in.Iin(tJs);
                 
-            elseif decaytype == 1,   % MTLL
+            elseif in.decaytype == 1,   % MTLL
                 
-                Jsv(i,t) = in.Iin(tJs) * (1 - (r(i)-in.Re)/in.sourcealt);
+                Jsv(i,t) = in.Iin(tJs) * (1 - (in.r(i)-in.Re)/in.sourcealt);
                 
-            elseif decaytype == 2,   % MTLE
+            elseif in.decaytype == 2,   % MTLE
                 
                 rssigma = in.sourcealt/3;      % decay length for MTLE
-                Jsv(i,t) = in.Iin(tJs) * exp(-(r(i)-in.Re)/rssigma);
+                Jsv(i,t) = in.Iin(tJs) * exp(-(in.r(i)-in.Re)/rssigma);
                 
-            elseif decaytype == 3,   % BG
+            elseif in.decaytype == 3,   % BG
                 
                 if t > rsdelay(i),
                     Jsv(i,t) = in.Iin(t);
                 end
                 
-            elseif decaytype == 4,   % TCS
+            elseif in.decaytype == 4,   % TCS
                 
-                tcsdelay = round((r(i)-in.Re)/3e8/in.dt);
+                tcsdelay = round((in.r(i)-in.Re)/3e8/in.dt);
                 tJs = t + tcsdelay;
                 if tJs > in.tsteps2, tJs = in.tsteps2; end
                 if t > rsdelay(i),
                     Jsv(i,t) = in.Iin(tJs);
                 end
                 
-            elseif decaytype == 5,   % DU
+            elseif in.decaytype == 5,   % DU
                 
                 taud = 2e-6;        % decay constant for DU source
-                tcsdelay = round((r(i)-in.Re)/3e8/in.dt);
+                tcsdelay = round((in.r(i)-in.Re)/3e8/in.dt);
                 tJs = t + tcsdelay;
                 vstar = in.rsspeed/(1+abs(in.rsspeed)/3e8);
                 z = (i-1)*in.dr1;
@@ -137,13 +126,13 @@ if in.lightningtype == 0,
                     Jsv(i,t) = (in.Iin(tJs) - exp(-(t*in.dt-z/abs(in.rsspeed))/taud)*in.Iin(tcsind));
                 end
                 
-            elseif decaytype == 6,   % dummy
+            elseif in.decaytype == 6,   % dummy
                 
                 Jsv(i,t) = in.Iin(t);
                 
-            elseif decaytype == 7,   % transmitter: decay with alt, no propagation
+            elseif in.decaytype == 7,   % transmitter: decay with alt, no propagation
                 
-                Jsv(i,t) = in.Iin(t) * (1 - (r(i)-in.Re)/in.sourcealt);
+                Jsv(i,t) = in.Iin(t) * (1 - (in.r(i)-in.Re)/in.sourcealt);
                 
             end
             
@@ -160,17 +149,17 @@ elseif in.lightningtype == 1,
     basealt = in.sourcealt - in.chlength/2;
     topalt = in.sourcealt + in.chlength/2;
     
-    i1 = find((r-in.Re) >= basealt, 1, 'first');
-    i2 = find((r-in.Re) >= topalt, 1, 'first');
+    i1 = find((in.r-in.Re) >= basealt, 1, 'first');
+    i2 = find((in.r-in.Re) >= topalt, 1, 'first');
     
     % altitude-dependent delay of return stroke from initiation
-    rsdelay = round((r-in.Re)/abs(in.rsspeed)/in.dt);
+    rsdelay = round((in.r-in.Re)/abs(in.rsspeed)/in.dt);
     
     for t = 1:in.tsteps2,
         
         for i = i1:i2,
             % index into source delay
-            tJs = t + max(rsdelay) - rsdelay(i-i1+4);
+            tJs = t + rsdelay(i2+nextra-10) - rsdelay(i-i1+1);
             if tJs > in.tsteps2,
                 tJs = in.tsteps2;
             end
@@ -184,23 +173,38 @@ elseif in.lightningtype == 1,
         Jsv(i1:i2,:) = flipud(Jsv(i1:i2,:));
     end
     
+    % exponential decay from top index (i2) to i2 + nextra
+    if nextra > 0,
+        for j = 1:nextra,
+            Jsv(i2+j,:) = Jsv(i2,:) * exp(-j/3);
+        end
+    end
+    
     
     %% CID source
 elseif in.lightningtype == 2,
     
-    
+    load('clds_source_current.mat');
+    z = z + 10e3;
+    Ic = flipud(Ic) * 2;
+    % gives current Ic at altitudes z and times t; interpolate to my grid
+    i1 = find((r-in.Re) >= min(z), 1, 'first');
+    tvec = 0:in.dt:max(t);
+    zvec = (r(i1):in.dr1:r(satop)) - in.Re;
+    [~,~,tempJsv] = clds_interpolate_current(t,z,Ic,zvec,tvec);
+    Jsv(i1:satop,:) = abs(tempJsv);
     
 end
 
 
 %% we only need to keep Jsv up to about 0.1 ms. Find it automatically though.
 
-ind = find(mean(Jsv,1) > 1e-6, 1, 'last');
-Jsv = Jsv(:,1:ind);
+%ind = find(mean(Jsv,1) > 1e-6, 1, 'last');
+in.source = Jsv; %(:,1:ind);
 
 if testing,
     figure;
-    imagesc(in.dt*(1:ind)*1e3,in.dr1*(1:nstotal)/1e3,Jsv);
+    imagesc(in.dt*(1:ind)*1e3,in.dr1*(1:nstotal)/1e3,in.source);
     axis xy;
 end
 

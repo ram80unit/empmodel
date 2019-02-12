@@ -237,14 +237,14 @@ A =[0.0  0.000E+00  2.000E+19  5.364E+18 1.230E-03  285.8  1.342E+14  2.392E+17 
 
 h = A(:,1);
 
-n.o = interp1(h,A(:,2),alt,'cubic');
-n.n2 = interp1(h,A(:,3),alt,'cubic');
-n.o2 = interp1(h,A(:,4),alt,'cubic');
-n.mass = interp1(h,A(:,5),alt,'cubic');
-n.temp = interp1(h,A(:,6),alt,'cubic');
-n.he = interp1(h,A(:,7),alt,'cubic');
-n.ar = interp1(h,A(:,8),alt,'cubic');
-n.h = interp1(h,A(:,9),alt,'cubic');
-n.n = interp1(h,A(:,10),alt,'cubic');
+n.o = interp1(h,A(:,2),alt,'pchip');
+n.n2 = interp1(h,A(:,3),alt,'pchip');
+n.o2 = interp1(h,A(:,4),alt,'pchip');
+n.mass = interp1(h,A(:,5),alt,'pchip');
+n.temp = interp1(h,A(:,6),alt,'pchip');
+n.he = interp1(h,A(:,7),alt,'pchip');
+n.ar = interp1(h,A(:,8),alt,'pchip');
+n.h = interp1(h,A(:,9),alt,'pchip');
+n.n = interp1(h,A(:,10),alt,'pchip');
 
 n.total = n.o + n.n2 + n.o2 + n.he + n.ar + n.h + n.n;

@@ -281,7 +281,7 @@ efrange = [1.0000000000000000e+002  3.1622776601683791e+005  3.5481338923357532e
 
 %Calculate Rates
 r(ef < efrange(i)) = ((i==1)*eng0+(i==11)*mob0+(i==12)*N2v10+(i==21)*CO2v0+(i==26)*N2sv0 ) * ( (i==11)*1/n_n0+(i==1)+(i~=1)*(i~=11)*n_n0 );
-r(ef >= efrange(i) & logef <= log_emax) = 10.^(interp1q(log10(field'), log10(table(:,i)+1e-16), logef(ef >= efrange(i) & logef <= log_emax)'))*((i==11)*1/n_n0+(i==1)+(i~=1)*(i~=11)*n_n0);
+r(ef >= efrange(i) & logef <= log_emax) = 10.^(interp1(log10(field'), log10(table(:,i)+1e-16), logef(ef >= efrange(i) & logef <= log_emax)'))*((i==11)*1/n_n0+(i==1)+(i~=1)*(i~=11)*n_n0);
 r(logef > log_emax) = 10.^(interp1(log10(field), log10(table(:,i)+1e-16), logef(logef > log_emax), 'linear', 'extrap'))*((i==11)*1/n_n0+(i==1)+(i~=1)*(i~=11)*n_n0);
 
 %if(max(logef) > log_emax)    

@@ -1,6 +1,6 @@
 % EMP ground parameters, for 2D transmitter propagation version
 
-function [sigma,epsilon] = getGroundParams(startLat,startLon,az,range,dr1)
+function [sigma,epsilon] = getGroundParams(in)
 
 doplot = 0;
 
@@ -10,20 +10,20 @@ doplot = 0;
 % range = 20000e3;
 % dr1 = 1e3;
 
-RE = 6370e3;
+RE = 6370e3;  % need this for proper ground parameters along real-Earth path
 
-npts = round(range/dr1) + 1;
+npts = round(in.range/in.dr1) + 1;
 interp = 0;
 
-[stopLat,stopLon] = reckon(startLat,startLon,range*180/pi/RE,az);
+[stopLat,stopLon] = reckon(in.Trlat,in.Trlon,in.range*180/pi/RE,in.az);
 
 load ( 'conductivity_data.mat' );
 
 % compute the great circle path, assume spherical for now
-[gc_lat,gc_lon] = track2(startLat,startLon,stopLat,stopLon,[RE 0],'degrees',npts);
+[gc_lat,gc_lon] = track2(in.Trlat,in.Trlon,stopLat,stopLon,[RE 0],'degrees',npts);
 
 % Find the distance.
-dist = pi/180 * RE * distance(startLat,startLon,stopLat,stopLon);
+dist = pi/180 * RE * distance(in.Trlat,in.Trlon,stopLat,stopLon);
 
 % Extract the conductivities along the path
 sigma = zeros(length(gc_lat),1);
@@ -52,7 +52,7 @@ if doplot,
     plot(gc_lon,gc_lat,'w');
     
     ax2 = subplot(223);
-    plot((1:npts)*dr1/1e3,log10(sigma));
+    plot((1:npts)*in.dr1/1e3,log10(sigma));
     
     ax3 = subplot(222);
     imagesc([-180:0.5:180],[-90:0.5:90],epsilonmap);
@@ -61,7 +61,7 @@ if doplot,
     plot(gc_lon,gc_lat,'w');
     
     ax2 = subplot(224);
-    plot((1:npts)*dr1/1e3,epsilon);
+    plot((1:npts)*in.dr1/1e3,epsilon);
     
 end
 

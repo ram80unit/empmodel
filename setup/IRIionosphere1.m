@@ -376,7 +376,7 @@ netemp = A(:,2);
 netemp(netemp < 0) = 0;
 h = A(:,1);
 
-ne = interp1(h,netemp,alt,'cubic');
+ne = interp1(h,netemp,alt,'pchip');
 
 fi = find(ne > 0,1,'first');
 logne = interp1([1 fi],[-5 log10(ne(fi))],1:fi,'linear');
